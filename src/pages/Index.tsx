@@ -16,21 +16,92 @@ const Index = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
 
-  // Simulated AI alt-tag generation
+  // AI-powered alt-tag generation with actual image analysis
   const generateAltTag = async (file: File, location: string, keywords: string): Promise<string> => {
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 3000));
-    
-    const imageType = file.name.toLowerCase().includes('service') ? 'worship service' :
-                     file.name.toLowerCase().includes('baptism') ? 'baptism ceremony' :
-                     file.name.toLowerCase().includes('youth') ? 'youth ministry' :
-                     file.name.toLowerCase().includes('choir') ? 'choir performance' :
-                     'church community gathering';
-    
-    const locationPart = location ? ` at ${location}` : '';
-    const keywordPart = keywords ? ` focusing on ${keywords.split(',')[0].trim()}` : '';
-    
-    return `${imageType}${locationPart}${keywordPart}, showing community fellowship and spiritual worship`;
+    try {
+      // Import the pipeline function dynamically
+      const { pipeline } = await import('@huggingface/transformers');
+      
+      // Create an image classification pipeline
+      const classifier = await pipeline('image-classification', 'microsoft/resnet-50');
+      
+      // Create object URL for the image
+      const imageUrl = URL.createObjectURL(file);
+      
+      // Analyze the image
+      const result = await classifier(imageUrl);
+      
+      // Clean up the object URL
+      URL.revokeObjectURL(imageUrl);
+      
+      // Get the top prediction (handle both single and array results)
+      const predictions = Array.isArray(result) ? result : [result];
+      const topPrediction = predictions[0] as { label: string; score: number };
+      let baseDescription = topPrediction.label;
+      
+      // Church-specific mapping for better context
+      const churchTerms = {
+        'person': 'congregation member',
+        'people': 'church community',
+        'group': 'church gathering',
+        'crowd': 'congregation',
+        'stage': 'church altar',
+        'microphone': 'worship service',
+        'musical_instrument': 'church music',
+        'piano': 'church piano',
+        'guitar': 'worship guitar',
+        'book': 'hymnal or Bible',
+        'candle': 'church candle',
+        'cross': 'church cross',
+        'building': 'church building'
+      };
+      
+      // Enhance description with church context
+      for (const [key, value] of Object.entries(churchTerms)) {
+        if (baseDescription.toLowerCase().includes(key)) {
+          baseDescription = value;
+          break;
+        }
+      }
+      
+      // Build concise alt text (aim for 105 characters or less)
+      let altText = baseDescription;
+      
+      if (location && altText.length + location.length + 4 <= 105) {
+        altText = `${baseDescription} at ${location}`;
+      }
+      
+      if (keywords) {
+        const firstKeyword = keywords.split(',')[0].trim();
+        if (altText.length + firstKeyword.length + 12 <= 105) {
+          altText += ` - ${firstKeyword}`;
+        }
+      }
+      
+      // Ensure it doesn't exceed 105 characters
+      if (altText.length > 105) {
+        altText = altText.substring(0, 102) + '...';
+      }
+      
+      return altText;
+      
+    } catch (error) {
+      console.error('AI analysis failed:', error);
+      
+      // Fallback to filename-based generation if AI fails
+      const imageType = file.name.toLowerCase().includes('service') ? 'worship service' :
+                       file.name.toLowerCase().includes('baptism') ? 'baptism ceremony' :
+                       file.name.toLowerCase().includes('youth') ? 'youth ministry' :
+                       file.name.toLowerCase().includes('choir') ? 'choir performance' :
+                       'church gathering';
+      
+      let altText = imageType;
+      if (location && altText.length + location.length + 4 <= 105) {
+        altText += ` at ${location}`;
+      }
+      
+      return altText;
+    }
   };
 
   const handleFilesUploaded = (files: File[]) => {
