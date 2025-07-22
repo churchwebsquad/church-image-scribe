@@ -16,7 +16,7 @@ const Index = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
 
-  // AI-powered alt-tag generation with unique, varied output per image
+  // AI-powered alt-tag generation with warm, descriptive church-focused output
   const generateAltTag = async (file: File, location: string, keywords: string): Promise<string> => {
     try {
       // Import the pipeline function dynamically
@@ -36,73 +36,70 @@ const Index = () => {
       
       // Get multiple predictions for variety - properly type the result
       const predictions = Array.isArray(result) ? result : [result];
-      const topPredictions = predictions.slice(0, 3); // Use top 3 for variety
+      const topPredictions = predictions.slice(0, 3);
       
       // Create unique descriptions using different prediction combinations
-      const uniqueId = Math.random().toString(36).substr(2, 4);
       const timestamp = Date.now();
       const predictionIndex = Math.floor(Math.random() * topPredictions.length);
       const selectedPrediction = topPredictions[predictionIndex] as { label: string; score: number };
       
       let baseDescription = selectedPrediction.label;
       
-      // Church-specific mapping with more variety
-      const churchContexts = [
-        { keywords: ['person', 'people', 'man', 'woman'], contexts: ['congregation member', 'church member', 'worshipper', 'parishioner'] },
-        { keywords: ['group', 'crowd', 'gathering'], contexts: ['church gathering', 'congregation', 'fellowship', 'community'] },
-        { keywords: ['stage', 'platform'], contexts: ['church altar', 'sanctuary', 'worship stage'] },
-        { keywords: ['microphone', 'mic'], contexts: ['worship service', 'sermon', 'church service'] },
-        { keywords: ['piano', 'keyboard'], contexts: ['church piano', 'worship music', 'hymn accompaniment'] },
-        { keywords: ['guitar'], contexts: ['worship guitar', 'praise music', 'contemporary worship'] },
-        { keywords: ['book', 'bible'], contexts: ['Bible study', 'scripture reading', 'hymnal'] },
-        { keywords: ['candle'], contexts: ['prayer candle', 'worship candle', 'candlelight service'] },
-        { keywords: ['cross', 'crucifix'], contexts: ['church cross', 'sanctuary cross', 'altar cross'] },
-        { keywords: ['building', 'church'], contexts: ['church building', 'sanctuary', 'chapel', 'worship center'] }
+      // Church activity mapping with warm, descriptive language
+      const churchActivities = [
+        { keywords: ['person', 'people', 'man', 'woman', 'group'], 
+          activities: ['congregation members gathering', 'community fellowship', 'church family connecting', 'members sharing faith', 'volunteers serving together'] },
+        { keywords: ['microphone', 'speaking', 'stage'], 
+          activities: ['pastor delivering sermon', 'worship leader speaking', 'ministry team sharing', 'guest speaker presenting'] },
+        { keywords: ['piano', 'keyboard', 'music'], 
+          activities: ['worship team playing', 'pianist leading hymns', 'music ministry serving', 'choir accompanying worship'] },
+        { keywords: ['guitar', 'instrument'], 
+          activities: ['worship band leading praise', 'musicians serving in worship', 'contemporary worship music'] },
+        { keywords: ['food', 'table', 'eating'], 
+          activities: ['fellowship meal gathering', 'community dinner sharing', 'volunteers serving refreshments', 'potluck fellowship'] },
+        { keywords: ['children', 'child', 'kids'], 
+          activities: ['children\'s ministry time', 'young disciples learning', 'kids worship celebration', 'Sunday school gathering'] },
+        { keywords: ['book', 'reading', 'bible'], 
+          activities: ['Bible study session', 'scripture reading time', 'small group discussion', 'devotional gathering'] },
+        { keywords: ['candle', 'light'], 
+          activities: ['prayer vigil service', 'candlelight worship', 'memorial service gathering'] },
+        { keywords: ['baptism', 'water'], 
+          activities: ['baptism celebration', 'new believer baptism', 'faith commitment ceremony'] }
       ];
       
-      // Apply church context with variety
-      for (const mapping of churchContexts) {
+      // Find matching activity with variety
+      let activity = 'worship service gathering';
+      for (const mapping of churchActivities) {
         if (mapping.keywords.some(keyword => baseDescription.toLowerCase().includes(keyword))) {
-          const contextIndex = (timestamp + file.size) % mapping.contexts.length;
-          baseDescription = mapping.contexts[contextIndex];
+          const activityIndex = (timestamp + file.size) % mapping.activities.length;
+          activity = mapping.activities[activityIndex];
           break;
         }
       }
       
-      // Create varied keyword combinations
+      // Parse keywords for context
       const keywordList = keywords ? keywords.split(',').map(k => k.trim()).filter(k => k) : [];
-      const selectedKeywords = keywordList.length > 0 ? 
-        keywordList.slice(0, Math.min(2, keywordList.length)) : [];
+      const contextKeyword = keywordList.length > 0 ? keywordList[(file.size + timestamp) % keywordList.length] : '';
       
-      // Vary the structure of alt text for uniqueness
+      // Create natural, warm alt text structures
       const structures = [
-        () => `${baseDescription} at ${location}`,
-        () => `${location} ${baseDescription}`,
-        () => `${baseDescription} during ${selectedKeywords[0] || 'worship'}`,
-        () => `${selectedKeywords[0] || 'Church'} ${baseDescription} at ${location}`,
-        () => `${baseDescription} - ${selectedKeywords.join(', ')} at ${location}`
+        () => `${activity} at ${location}`,
+        () => `${location} ${activity}`,
+        () => contextKeyword ? `${activity} during ${contextKeyword} at ${location}` : `${activity} at ${location}`,
+        () => contextKeyword ? `${contextKeyword} gathering with ${activity.replace('gathering', 'community')} at ${location}` : `Community ${activity} at ${location}`,
+        () => `Members enjoying ${activity.replace('gathering', 'fellowship')} at ${location}`
       ];
       
       const structureIndex = (file.size + timestamp) % structures.length;
-      let altText = location ? structures[structureIndex]() : baseDescription;
-      
-      // Add variation if keywords exist
-      if (selectedKeywords.length > 0 && altText.length < 80) {
-        const remainingKeywords = selectedKeywords.filter(k => !altText.includes(k));
-        if (remainingKeywords.length > 0 && altText.length + remainingKeywords[0].length + 3 <= 105) {
-          altText += ` - ${remainingKeywords[0]}`;
-        }
-      }
-      
-      // Ensure uniqueness by adding subtle identifiers
-      if (altText.length < 95) {
-        const fileIdentifier = file.name.substring(0, 3) + (file.size % 100);
-        altText += ` ${fileIdentifier}`;
-      }
+      let altText = location ? structures[structureIndex]() : activity;
       
       // Ensure it doesn't exceed 105 characters
       if (altText.length > 105) {
-        altText = altText.substring(0, 102) + '...';
+        // Try a simpler structure
+        altText = `${activity} at ${location}`;
+        if (altText.length > 105) {
+          altText = altText.substring(0, 102) + '...';
+        }
       }
       
       return altText;
@@ -110,51 +107,36 @@ const Index = () => {
     } catch (error) {
       console.error('AI analysis failed:', error);
       
-      // Enhanced fallback with more variety based on file characteristics
-      const fileSize = file.size;
-      const fileName = file.name.toLowerCase();
-      const timestamp = Date.now();
+      // Enhanced fallback with warm, descriptive church language
+      const keywordList = keywords ? keywords.split(',').map(k => k.trim()).filter(k => k) : [];
+      const contextKeyword = keywordList.length > 0 ? keywordList[Math.floor(Math.random() * keywordList.length)] : '';
       
-      // Create varied base descriptions
-      const baseTypes = [
-        'worship service', 'church gathering', 'community fellowship', 
-        'spiritual worship', 'church service', 'congregation meeting',
-        'faith gathering', 'church community', 'worship celebration'
+      // Create varied, warm base activities
+      const fallbackActivities = [
+        'worship service gathering', 'community fellowship time', 'church family connecting',
+        'Sunday worship celebration', 'ministry team serving', 'congregation in prayer',
+        'faith community gathering', 'believers sharing together', 'church service moment'
       ];
       
-      const eventTypes = [
-        'baptism ceremony', 'youth ministry', 'choir performance',
-        'prayer meeting', 'Bible study', 'church event',
-        'worship concert', 'fellowship dinner', 'church outreach'
-      ];
+      const activityIndex = (file.size + Date.now()) % fallbackActivities.length;
+      const activity = fallbackActivities[activityIndex];
       
-      // Determine base type from filename with variety
-      let baseType;
-      if (fileName.includes('service')) baseType = baseTypes[fileSize % baseTypes.length];
-      else if (fileName.includes('baptism')) baseType = 'baptism ceremony';
-      else if (fileName.includes('youth')) baseType = 'youth ministry';
-      else if (fileName.includes('choir')) baseType = eventTypes[2];
-      else baseType = baseTypes[(fileSize + timestamp) % baseTypes.length];
-      
-      // Create unique alt text structure
-      let altText = baseType;
-      if (location && altText.length + location.length + 4 <= 105) {
-        altText += ` at ${location}`;
+      // Create natural alt text
+      let altText;
+      if (contextKeyword && location) {
+        altText = `${activity} during ${contextKeyword} at ${location}`;
+      } else if (location) {
+        altText = `${activity} at ${location}`;
+      } else {
+        altText = activity;
       }
       
-      // Add keyword variety
-      if (keywords) {
-        const keywordList = keywords.split(',').map(k => k.trim());
-        const selectedKeyword = keywordList[(fileSize + fileName.length) % keywordList.length];
-        if (altText.length + selectedKeyword.length + 3 <= 105) {
-          altText += ` - ${selectedKeyword}`;
+      // Ensure it doesn't exceed 105 characters
+      if (altText.length > 105) {
+        altText = `${activity} at ${location}`;
+        if (altText.length > 105) {
+          altText = altText.substring(0, 102) + '...';
         }
-      }
-      
-      // Add subtle uniqueness
-      const uniqueId = (fileSize % 1000).toString(36);
-      if (altText.length + uniqueId.length + 1 <= 105) {
-        altText += ` ${uniqueId}`;
       }
       
       return altText;
